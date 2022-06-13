@@ -1,0 +1,59 @@
+local function is_gunsight(t)
+    local sightparts = gun_system.currentgun and gun_system.currentgun.aimsightdata
+    for _, sightdata in next, sightparts do
+        if sightdata.sightpart == t then
+            return true
+        end
+    end
+    return false
+end
+
+local old_index old_index = hookmetamethod(game, "__index", function(t, k)
+    if k == "CFrame" and config.aimbot.silent_aim and gun_system.currentgun and (is_gunsight(t) or t == gun_system.currentgun.barrel) then
+        local r = weighted_random({hit = config.aimbot.hit_chance,miss = 100 - config.aimbot.hit_chance})
+
+        local cf = old_index(t, k)
+        local c_player, c_bodyparts = get_closest()
+        if c_player and c_bodyparts and c_player.Team ~= player.Team and r == "hit" then
+            return CFrame.new(
+                cf.Position,
+                c_bodyparts[config.aimbot.target_part].Position
+            )
+        end
+    end
+    return old_index(t, k)
+end)
+
+getgenv().get_closest = function()
+    local c_player, c_bodyparts, c_distance
+
+    for _, _player in next, players:GetChildren() do
+        if _player == player then continue end
+        local character = characters[_player]
+        if character then
+            local torso = character.torso
+            if not torso then continue end
+            local v2, onscreen = get_v2(torso.Position)
+            if onscreen then
+                local distance = (get_mouse_pos() - v2).Magnitude
+                if distance <= (c_distance or config.aimbot.field_of_view and config.aimbot.field_of_view_range or 2000) then
+                    c_player = _player
+                    c_bodyparts = character
+                    c_distance = distance
+                end
+            end
+        end
+    end
+
+    return c_player, c_bodyparts
+end
+
+getgenv().config = {
+    aimbot = {
+        silent_aim = false,
+        hit_chance = 100,
+        field_of_view = false,
+        field_of_view_range = 180,
+        target_part = "head"
+    },
+}
